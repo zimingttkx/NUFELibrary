@@ -1,0 +1,267 @@
+const fs = require('fs');
+const path = require('path');
+
+// Mock fs module before requiring myCooke
+jest.mock('fs');
+
+describe('myCooke.js - 数据管理模块测试', () => {
+  let myCooke;
+
+  beforeEach(() => {
+    // 清除模块缓存，确保每次测试都重新加载
+    jest.clearAllMocks();
+    jest.resetModules();
+  });
+
+  describe('数据加载功能', () => {
+    test('应该在data.json存在时正确加载数据', () => {
+      const mockData = {
+        CookeObj: {
+          Cookie: 'test-cookie',
+          libId: 12345,
+          key: '1,2.',
+          seatName: '101',
+          keyList: ['3,4.', '5,6.']
+        },
+        libList: [
+          {
+            lib_id: 100,
+            lib_floor: '1楼',
+            lib_name: '测试图书馆'
+          }
+        ]
+      };
+
+      fs.readFileSync.mockReturnValue(JSON.stringify(mockData));
+
+      // 重新加载模块以触发IIFE
+      myCooke = require('../myCooke.js');
+
+      expect(fs.readFileSync).toHaveBeenCalledWith('./fuckinglib/data.json', 'utf8');
+      expect(myCooke.CookeObj.Cookie).toBe('test-cookie');
+      expect(myCooke.CookeObj.libId).toBe(12345);
+      expect(myCooke.CookeObj.key).toBe('1,2.');
+      expect(myCooke.CookeObj.seatName).toBe('101');
+      expect(myCooke.CookeObj.keyList).toEqual(['3,4.', '5,6.']);
+      expect(myCooke.libList).toHaveLength(1);
+      expect(myCooke.libList[0].lib_name).toBe('测试图书馆');
+    });
+
+    test('应该在data.json不存在时使用默认值', () => {
+      fs.readFileSync.mockImplementation(() => {
+        throw new Error('文件不存在');
+      });
+
+      myCooke = require('../myCooke.js');
+
+      expect(myCooke.CookeObj).toBeDefined();
+      expect(myCooke.CookeObj.Cookie).toBeDefined();
+      expect(myCooke.libList).toBeDefined();
+      expect(Array.isArray(myCooke.libList)).toBe(true);
+    });
+
+    test('应该正确处理keyList为空的情况', () => {
+      const mockData = {
+        CookeObj: {
+          Cookie: 'test',
+          libId: 123,
+          key: '1,2.',
+          seatName: '101'
+          // keyList 不存在
+        },
+        libList: []
+      };
+
+      fs.readFileSync.mockReturnValue(JSON.stringify(mockData));
+      myCooke = require('../myCooke.js');
+
+      expect(myCooke.CookeObj.keyList).toEqual([]);
+    });
+  });
+
+  describe('同步保存功能 - saveLibData', () => {
+    beforeEach(() => {
+      fs.readFileSync.mockImplementation(() => {
+        throw new Error('文件不存在');
+      });
+      myCooke = require('../myCooke.js');
+    });
+
+    test('应该正确保存数据到data.json', () => {
+      fs.writeFileSync.mockImplementation(() => {});
+
+      myCooke.saveLibData();
+
+      expect(fs.writeFileSync).toHaveBeenCalled();
+      const [filePath, content, encoding] = fs.writeFileSync.mock.calls[0];
+
+      expect(filePath).toBe('./fuckinglib/data.json');
+      expect(encoding).toBe('utf8');
+
+      const savedData = JSON.parse(content);
+      expect(savedData).toHaveProperty('CookeObj');
+      expect(savedData).toHaveProperty('libList');
+      expect(savedData.CookeObj).toEqual(myCooke.CookeObj);
+      expect(savedData.libList).toEqual(myCooke.libList);
+    });
+
+    test('应该保存完整的CookeObj结构', () => {
+      fs.writeFileSync.mockImplementation(() => {});
+
+      myCooke.CookeObj.Cookie = 'new-cookie';
+      myCooke.CookeObj.libId = 999;
+      myCooke.CookeObj.key = '10,20.';
+      myCooke.CookeObj.seatName = '999';
+      myCooke.CookeObj.keyList = ['1,2.', '3,4.'];
+
+      myCooke.saveLibData();
+
+      const savedContent = fs.writeFileSync.mock.calls[0][1];
+      const savedData = JSON.parse(savedContent);
+
+      expect(savedData.CookeObj.Cookie).toBe('new-cookie');
+      expect(savedData.CookeObj.libId).toBe(999);
+      expect(savedData.CookeObj.key).toBe('10,20.');
+      expect(savedData.CookeObj.seatName).toBe('999');
+      expect(savedData.CookeObj.keyList).toEqual(['1,2.', '3,4.']);
+    });
+  });
+
+  describe('异步保存功能 - saveLibDataAsync', () => {
+    beforeEach(() => {
+      fs.readFileSync.mockImplementation(() => {
+        throw new Error('文件不存在');
+      });
+      myCooke = require('../myCooke.js');
+    });
+
+    test('应该成功异步保存数据', async () => {
+      fs.writeFile.mockImplementation((path, data, encoding, callback) => {
+        callback(null);
+      });
+
+      const result = await myCooke.saveLibDataAsync();
+
+      expect(result).toEqual({
+        code: 0,
+        msg: 'save_success'
+      });
+      expect(fs.writeFile).toHaveBeenCalled();
+    });
+
+    test('应该在保存失败时返回错误', async () => {
+      fs.writeFile.mockImplementation((path, data, encoding, callback) => {
+        callback(new Error('写入失败'));
+      });
+
+      await expect(myCooke.saveLibDataAsync()).rejects.toEqual({
+        code: 1,
+        msg: 'save_failed'
+      });
+    });
+
+    test('应该保存正确的数据格式', async () => {
+      fs.writeFile.mockImplementation((path, data, encoding, callback) => {
+        callback(null);
+      });
+
+      myCooke.libList.push({
+        lib_id: 777,
+        lib_floor: '7楼',
+        lib_name: '测试楼层'
+      });
+
+      await myCooke.saveLibDataAsync();
+
+      const [filePath, content] = fs.writeFile.mock.calls[0];
+      expect(filePath).toBe('./fuckinglib/data.json');
+
+      const savedData = JSON.parse(content);
+      expect(savedData.libList).toContainEqual({
+        lib_id: 777,
+        lib_floor: '7楼',
+        lib_name: '测试楼层'
+      });
+    });
+  });
+
+  describe('导出模块验证', () => {
+    test('应该导出所有必需的属性和方法', () => {
+      fs.readFileSync.mockImplementation(() => {
+        throw new Error('文件不存在');
+      });
+      myCooke = require('../myCooke.js');
+
+      expect(myCooke).toHaveProperty('CookeObj');
+      expect(myCooke).toHaveProperty('libList');
+      expect(myCooke).toHaveProperty('saveLibData');
+      expect(myCooke).toHaveProperty('saveLibDataAsync');
+      expect(typeof myCooke.saveLibData).toBe('function');
+      expect(typeof myCooke.saveLibDataAsync).toBe('function');
+    });
+  });
+
+  describe('CookeObj结构验证', () => {
+    test('CookeObj应该包含所有必需字段', () => {
+      fs.readFileSync.mockImplementation(() => {
+        throw new Error('文件不存在');
+      });
+      myCooke = require('../myCooke.js');
+
+      expect(myCooke.CookeObj).toHaveProperty('Cookie');
+      expect(myCooke.CookeObj).toHaveProperty('libId');
+      expect(myCooke.CookeObj).toHaveProperty('key');
+      expect(myCooke.CookeObj).toHaveProperty('seatName');
+      expect(myCooke.CookeObj).toHaveProperty('keyList');
+      expect(Array.isArray(myCooke.CookeObj.keyList)).toBe(true);
+    });
+  });
+
+  describe('libList结构验证', () => {
+    test('libList应该是数组', () => {
+      fs.readFileSync.mockImplementation(() => {
+        throw new Error('文件不存在');
+      });
+      myCooke = require('../myCooke.js');
+
+      expect(Array.isArray(myCooke.libList)).toBe(true);
+    });
+
+    test('libList中的元素应该有正确的结构', () => {
+      const mockData = {
+        CookeObj: {
+          Cookie: 'test',
+          libId: 123,
+          key: '1,2.',
+          seatName: '101',
+          keyList: []
+        },
+        libList: [
+          {
+            lib_id: 100,
+            lib_floor: '1楼',
+            lib_name: '图书馆A'
+          },
+          {
+            lib_id: 200,
+            lib_floor: '2楼',
+            lib_name: '图书馆B'
+          }
+        ]
+      };
+
+      fs.readFileSync.mockReturnValue(JSON.stringify(mockData));
+      myCooke = require('../myCooke.js');
+
+      expect(myCooke.libList).toHaveLength(2);
+      myCooke.libList.forEach(lib => {
+        expect(lib).toHaveProperty('lib_id');
+        expect(lib).toHaveProperty('lib_floor');
+        expect(lib).toHaveProperty('lib_name');
+        expect(typeof lib.lib_id).toBe('number');
+        expect(typeof lib.lib_floor).toBe('string');
+        expect(typeof lib.lib_name).toBe('string');
+      });
+    });
+  });
+});

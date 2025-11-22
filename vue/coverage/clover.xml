@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<coverage generated="1763782188789" clover="3.2.0">
+  <project timestamp="1763782188789" name="All files">
+    <metrics statements="10" coveredstatements="1" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0" elements="10" coveredelements="1" complexity="0" loc="10" ncloc="10" packages="3" files="6" classes="6"/>
+    <package name="src">
+      <metrics statements="1" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+      <file name="App.vue" path="C:\Users\Administrator\PycharmProjects\NFUELibrary\vue\src\App.vue">
+        <metrics statements="1" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="6" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.components">
+      <metrics statements="4" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+      <file name="CusInput.vue" path="C:\Users\Administrator\PycharmProjects\NFUELibrary\vue\src\components\CusInput.vue">
+        <metrics statements="1" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="35" count="0" type="stmt"/>
+      </file>
+      <file name="HelloWorld.vue" path="C:\Users\Administrator\PycharmProjects\NFUELibrary\vue\src\components\HelloWorld.vue">
+        <metrics statements="3" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="66" count="0" type="stmt"/>
+        <line num="68" count="0" type="stmt"/>
+        <line num="69" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.views">
+      <metrics statements="5" coveredstatements="1" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+      <file name="Home.vue" path="C:\Users\Administrator\PycharmProjects\NFUELibrary\vue\src\views\Home.vue">
+        <metrics statements="1" coveredstatements="1" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="26" count="1" type="stmt"/>
+      </file>
+      <file name="ReservationManage.vue" path="C:\Users\Administrator\PycharmProjects\NFUELibrary\vue\src\views\ReservationManage.vue">
+        <metrics statements="2" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="73" count="0" type="stmt"/>
+        <line num="75" count="0" type="stmt"/>
+      </file>
+      <file name="SeatView.vue" path="C:\Users\Administrator\PycharmProjects\NFUELibrary\vue\src\views\SeatView.vue">
+        <metrics statements="2" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="128" count="0" type="stmt"/>
+        <line num="130" count="0" type="stmt"/>
+      </file>
+    </package>
+  </project>
+</coverage>

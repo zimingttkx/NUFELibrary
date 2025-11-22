@@ -8,6 +8,7 @@ const CookeObj = {
   key: "10,79.",
   seatName: "225",
   keyList: [],
+  favoriteSeats: [], // 新增：收藏座位列表
 };
 
 // 若data.json存在，则实际libList的值将从json文件中读取
@@ -25,11 +26,19 @@ let libList = [
 ];
 
 // 自动加载本地数据
-(function (CookeObj, libList) {
+(function () {
   try {
     const data = fs.readFileSync("./fuckinglib/data.json", "utf8");
     const _data = JSON.parse(data);
-    CookeObj = _data.CookeObj;
+
+    // 修复：正确加载CookeObj的所有属性
+    CookeObj.Cookie = _data.CookeObj.Cookie;
+    CookeObj.libId = _data.CookeObj.libId;
+    CookeObj.key = _data.CookeObj.key;
+    CookeObj.seatName = _data.CookeObj.seatName;
+    CookeObj.keyList = _data.CookeObj.keyList || [];
+    CookeObj.favoriteSeats = _data.CookeObj.favoriteSeats || [];
+
     _LibList = _data.libList;
     libList.splice(0, libList.length);
     // 遍历liblist
@@ -45,7 +54,7 @@ let libList = [
   } catch (err) {
     console.error("❌data.json暂不存在，关闭服务器时将自动保存");
   }
-})(CookeObj, libList);
+})();
 
 // 同步保存数据
 function saveLibData() {

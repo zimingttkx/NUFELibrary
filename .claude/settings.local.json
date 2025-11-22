@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git clone:*)",
+      "Bash(dir:*)",
+      "Bash(node --version:*)",
+      "Bash(npm:*)",
+      "Bash(node index.js:*)",
+      "Bash(curl:*)",
+      "Bash(copy:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(timeout 2 cmd /c \"type C:\\Users\\Administrator\\PycharmProjects\\NFUELibrary\\nodeServer\\fuckinglib\\data.json\")",
+      "Bash(timeout:*)",
+      "Bash(node:*)",
+      "Bash(cmd /c \"cd /d C:\\Users\\Administrator\\PycharmProjects\\NFUELibrary\\nodeServer && node index.js\")",
+      "Bash(powershell -Command \"Set-Location ''C:\\Users\\Administrator\\PycharmProjects\\NFUELibrary\\nodeServer''; node index.js\")",
+      "Bash(powershell -Command \"Set-Location ''C:\\Users\\Administrator\\PycharmProjects\\NFUELibrary\\vue''; npm run serve\")",
+      "Bash(powershell -Command \"Get-Content ''C:\\Users\\Administrator\\PycharmProjects\\NFUELibrary\\nodeServer\\fuckinglib\\index.js'' | Select-Object -Last 150\")",
+      "Bash(nul)",
+      "Bash(powershell -Command \"Set-Location ''C:\\Users\\Administrator\\PycharmProjects\\NFUELibrary\\vue''; npm install vue-router@3\")",
+      "Bash(powershell -Command:*)",
+      "Bash(taskkill:*)",
+      "Bash(start http://localhost:8080)",
+      "Bash(start http://172.20.128.1:8080/)",
+      "Bash(Select-String -Pattern \"Test Suites:|Tests:\" -Context 0,0)",
+      "Bash(python -m json.tool:*)",
+      "Bash(start http://172.20.128.1:8082/)",
+      "Bash(start http://172.20.128.1:8081/)",
+      "Bash(cd:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
