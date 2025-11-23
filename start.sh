@@ -15,6 +15,20 @@ echo ""
 # 获取脚本所在目录
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+# 检查Node.js是否安装
+if ! command -v node &> /dev/null; then
+    echo -e "${YELLOW}[提示] 未检测到 Node.js，正在运行安装脚本...${NC}"
+    echo ""
+    bash "$SCRIPT_DIR/install.sh"
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}[错误] Node.js 安装失败${NC}"
+        exit 1
+    fi
+    echo ""
+    echo -e "${GREEN}请重新运行 ./start.sh 启动项目${NC}"
+    exit 0
+fi
+
 # 获取本机IP地址
 get_local_ip() {
     if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -33,14 +47,30 @@ echo ""
 
 # 检查nodeServer是否已安装依赖
 if [ ! -d "$SCRIPT_DIR/nodeServer/node_modules" ]; then
-    echo -e "${RED}[错误] 后端依赖未安装，请先运行 ./install.sh${NC}"
-    exit 1
+    echo -e "${YELLOW}[提示] 后端依赖未安装，正在自动安装...${NC}"
+    echo ""
+    bash "$SCRIPT_DIR/install.sh"
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}[错误] 依赖安装失败${NC}"
+        exit 1
+    fi
+    echo ""
+    echo -e "${GREEN}依赖安装完成，继续启动...${NC}"
+    echo ""
 fi
 
 # 检查vue是否已安装依赖
 if [ ! -d "$SCRIPT_DIR/vue/node_modules" ]; then
-    echo -e "${RED}[错误] 前端依赖未安装，请先运行 ./install.sh${NC}"
-    exit 1
+    echo -e "${YELLOW}[提示] 前端依赖未安装，正在自动安装...${NC}"
+    echo ""
+    bash "$SCRIPT_DIR/install.sh"
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}[错误] 依赖安装失败${NC}"
+        exit 1
+    fi
+    echo ""
+    echo -e "${GREEN}依赖安装完成，继续启动...${NC}"
+    echo ""
 fi
 
 # 创建日志目录

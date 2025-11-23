@@ -5,6 +5,23 @@ echo    图书馆自动预约系统 - 一键启动
 echo ========================================
 echo.
 
+REM 检查Node.js是否安装
+where node >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [提示] 未检测到 Node.js，正在运行安装脚本...
+    echo.
+    call "%~dp0install.bat"
+    if %errorlevel% neq 0 (
+        echo [错误] Node.js 安装失败
+        pause
+        exit /b 1
+    )
+    echo.
+    echo 请重新运行 start.bat 启动项目
+    pause
+    exit /b 0
+)
+
 REM 获取本机IP地址
 for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do (
     for /f "tokens=1" %%b in ("%%a") do (
@@ -19,16 +36,32 @@ echo.
 
 REM 检查nodeServer是否已安装依赖
 if not exist "nodeServer\node_modules\" (
-    echo [错误] 后端依赖未安装，请先运行 install.bat
-    pause
-    exit /b 1
+    echo [提示] 后端依赖未安装，正在自动安装...
+    echo.
+    call "%~dp0install.bat"
+    if %errorlevel% neq 0 (
+        echo [错误] 依赖安装失败
+        pause
+        exit /b 1
+    )
+    echo.
+    echo 依赖安装完成，继续启动...
+    echo.
 )
 
 REM 检查vue是否已安装依赖
 if not exist "vue\node_modules\" (
-    echo [错误] 前端依赖未安装，请先运行 install.bat
-    pause
-    exit /b 1
+    echo [提示] 前端依赖未安装，正在自动安装...
+    echo.
+    call "%~dp0install.bat"
+    if %errorlevel% neq 0 (
+        echo [错误] 依赖安装失败
+        pause
+        exit /b 1
+    )
+    echo.
+    echo 依赖安装完成，继续启动...
+    echo.
 )
 
 echo [1/2] 启动后端服务器 (端口: 8899)...

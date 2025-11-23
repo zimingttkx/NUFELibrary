@@ -71,7 +71,7 @@ export default {
     data: function () {
         return {
             // DOMAIN: "https://test.api.roadrunner2002.top",
-            DOMAIN: "http://127.0.0.1:8899",
+            DOMAIN: "http://10.102.224.242:8899",
             newCookie: "",
             codeUrl: "",
             libList: [],

@@ -27,7 +27,11 @@
       "Bash(python -m json.tool:*)",
       "Bash(start http://172.20.128.1:8082/)",
       "Bash(start http://172.20.128.1:8081/)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(chmod:*)",
+      "Bash(git add:*)",
+      "Bash(git rebase:*)",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "ask": []
