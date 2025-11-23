@@ -15,6 +15,22 @@ echo ""
 # 获取脚本所在目录
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+# 获取本机IP地址
+get_local_ip() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS
+        LOCAL_IP=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo "127.0.0.1")
+    else
+        # Linux
+        LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || ip route get 1 2>/dev/null | awk '{print $7}' || echo "127.0.0.1")
+    fi
+    echo "$LOCAL_IP"
+}
+
+LOCAL_IP=$(get_local_ip)
+echo -e "${GREEN}检测到本机IP: ${LOCAL_IP}${NC}"
+echo ""
+
 # 检查nodeServer是否已安装依赖
 if [ ! -d "$SCRIPT_DIR/nodeServer/node_modules" ]; then
     echo -e "${RED}[错误] 后端依赖未安装，请先运行 ./install.sh${NC}"
@@ -54,8 +70,8 @@ echo ""
 echo "========================================"
 echo -e "${GREEN}服务启动成功！${NC}"
 echo ""
-echo -e "${YELLOW}后端服务:${NC} http://localhost:8899"
-echo -e "${YELLOW}前端服务:${NC} http://localhost:8080"
+echo -e "${YELLOW}后端服务:${NC} http://${LOCAL_IP}:8899"
+echo -e "${YELLOW}前端服务:${NC} http://${LOCAL_IP}:8080"
 echo ""
 echo -e "${YELLOW}进程信息:${NC}"
 echo "  后端 PID: $BACKEND_PID"
@@ -78,7 +94,7 @@ echo ""
 echo "========================================"
 echo -e "${GREEN}前端服务应该已准备就绪${NC}"
 echo ""
-echo "请在浏览器中访问: http://localhost:8080"
+echo "请在浏览器中访问: http://${LOCAL_IP}:8080"
 echo ""
 echo "提示:"
 echo "- 查看后端日志: tail -f logs/backend.log"
@@ -89,8 +105,8 @@ echo "========================================"
 # 尝试自动打开浏览器
 if command -v xdg-open &> /dev/null; then
     # Linux
-    xdg-open http://localhost:8080 &> /dev/null &
+    xdg-open "http://${LOCAL_IP}:8080" &> /dev/null &
 elif command -v open &> /dev/null; then
     # macOS
-    open http://localhost:8080 &> /dev/null &
+    open "http://${LOCAL_IP}:8080" &> /dev/null &
 fi

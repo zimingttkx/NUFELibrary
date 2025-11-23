@@ -5,6 +5,18 @@ echo    图书馆自动预约系统 - 一键启动
 echo ========================================
 echo.
 
+REM 获取本机IP地址
+for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do (
+    for /f "tokens=1" %%b in ("%%a") do (
+        set LOCAL_IP=%%b
+        goto :got_ip
+    )
+)
+:got_ip
+if not defined LOCAL_IP set LOCAL_IP=127.0.0.1
+echo 检测到本机IP: %LOCAL_IP%
+echo.
+
 REM 检查nodeServer是否已安装依赖
 if not exist "nodeServer\node_modules\" (
     echo [错误] 后端依赖未安装，请先运行 install.bat
@@ -33,8 +45,8 @@ echo.
 echo ========================================
 echo 正在启动服务...
 echo.
-echo 后端服务: http://localhost:8899
-echo 前端服务: http://localhost:8080
+echo 后端服务: http://%LOCAL_IP%:8899
+echo 前端服务: http://%LOCAL_IP%:8080
 echo.
 echo 两个服务窗口已打开，请不要关闭
 echo ========================================
@@ -49,7 +61,7 @@ timeout /t 40 /nobreak
 
 echo.
 echo 正在打开浏览器...
-start http://localhost:8080
+start http://%LOCAL_IP%:8080
 
 echo.
 echo ========================================
