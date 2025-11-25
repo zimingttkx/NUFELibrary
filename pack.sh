@@ -11,8 +11,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 配置
-VERSION="1.0.0"
-PROJECT_NAME="NFUELibrary"
+VERSION="1.0.0-macos"
+PROJECT_NAME="NUFELibrary"
 OUTPUT_DIR="dist"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 TEMP_DIR="${OUTPUT_DIR}/temp"
