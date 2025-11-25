@@ -1,0 +1,300 @@
+const axios = require('axios');
+
+// Mock dependencies
+jest.mock('../myCooke.js', () => ({
+  CookeObj: {
+    Cookie: 'Authorization=test; SERVERID=old123'
+  },
+  saveLibDataAsync: jest.fn(() => Promise.resolve({ code: 0, msg: 'save_success' }))
+}));
+
+describe('http.js - Axios配置和SERVERID管理测试', () => {
+  let http;
+  let mockAxios;
+  let myCooke;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.resetModules();
+    jest.useFakeTimers();
+
+    // 重新加载模块
+    myCooke = require('../myCooke.js');
+    http = require('../http.js');
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  describe('模块导出验证', () => {
+    test('应该导出必需的常量和对象', () => {
+      expect(http).toHaveProperty('AxiosRequest');
+      expect(http).toHaveProperty('DOMAIN');
+      expect(http).toHaveProperty('UA');
+      expect(typeof http.DOMAIN).toBe('string');
+      expect(typeof http.UA).toBe('string');
+    });
+
+    test('DOMAIN应该是正确的URL', () => {
+      expect(http.DOMAIN).toBe('https://wechat.v2.traceint.com');
+    });
+
+    test('UA应该包含必要的浏览器标识', () => {
+      expect(http.UA).toContain('Mozilla');
+      expect(http.UA).toContain('MicroMessenger');
+    });
+  });
+
+  describe('AxiosRequest实例配置', () => {
+    test('应该创建Axios实例', () => {
+      expect(http.AxiosRequest).toBeDefined();
+      expect(typeof http.AxiosRequest.get).toBe('function');
+      expect(typeof http.AxiosRequest.post).toBe('function');
+    });
+
+    test('应该配置正确的默认headers', () => {
+      const config = http.AxiosRequest.defaults;
+      expect(config.headers['App-Version']).toBe('2.0.14');
+      expect(config.headers['User-Agent']).toBe(http.UA);
+    });
+  });
+
+  describe('请求拦截器 - Cookie注入', () => {
+    test('应该在请求头中注入Cookie', async () => {
+      const mockAdapter = jest.fn((config) => {
+        return Promise.resolve({
+          data: { success: true },
+          status: 200,
+          headers: {}
+        });
+      });
+
+      http.AxiosRequest.defaults.adapter = mockAdapter;
+
+      await http.AxiosRequest.get('/test');
+
+      expect(mockAdapter).toHaveBeenCalled();
+      const requestConfig = mockAdapter.mock.calls[0][0];
+      expect(requestConfig.headers.Cookie).toBeDefined();
+      expect(requestConfig.headers.Cookie).toContain('Authorization=test');
+    });
+  });
+
+  describe('响应拦截器 - SERVERID更新', () => {
+    test('应该从响应中提取并更新SERVERID', async () => {
+      const mockAdapter = jest.fn((config) => {
+        return Promise.resolve({
+          data: { success: true },
+          status: 200,
+          headers: {
+            'set-cookie': ['SERVERID=new456; Path=/; HttpOnly']
+          },
+          config
+        });
+      });
+
+      http.AxiosRequest.defaults.adapter = mockAdapter;
+
+      const initialCookie = myCooke.CookeObj.Cookie;
+      await http.AxiosRequest.get('/test');
+
+      // 等待防抖计时器
+      jest.advanceTimersByTime(5000);
+
+      // 验证Cookie已更新
+      expect(myCooke.CookeObj.Cookie).toContain('SERVERID=new456');
+      expect(myCooke.CookeObj.Cookie).not.toContain('SERVERID=old123');
+    });
+
+    test('应该在没有set-cookie时不更新', async () => {
+      const mockAdapter = jest.fn((config) => {
+        return Promise.resolve({
+          data: { success: true },
+          status: 200,
+          headers: {},
+          config
+        });
+      });
+
+      http.AxiosRequest.defaults.adapter = mockAdapter;
+
+      const initialCookie = myCooke.CookeObj.Cookie;
+      await http.AxiosRequest.get('/test');
+
+      expect(myCooke.CookeObj.Cookie).toBe(initialCookie);
+    });
+  });
+
+  describe('防抖保存机制', () => {
+    test('应该在5秒后保存数据', async () => {
+      const mockAdapter = jest.fn((config) => {
+        return Promise.resolve({
+          data: {},
+          status: 200,
+          headers: {
+            'set-cookie': ['SERVERID=new789; Path=/']
+          },
+          config
+        });
+      });
+
+      http.AxiosRequest.defaults.adapter = mockAdapter;
+
+      await http.AxiosRequest.get('/test');
+
+      expect(myCooke.saveLibDataAsync).not.toHaveBeenCalled();
+
+      jest.advanceTimersByTime(5000);
+
+      expect(myCooke.saveLibDataAsync).toHaveBeenCalled();
+    });
+
+    test('应该在多次更新时只保存一次（防抖）', async () => {
+      const mockAdapter = jest.fn((config) => {
+        return Promise.resolve({
+          data: {},
+          status: 200,
+          headers: {
+            'set-cookie': ['SERVERID=updated; Path=/']
+          },
+          config
+        });
+      });
+
+      http.AxiosRequest.defaults.adapter = mockAdapter;
+
+      // 快速连续发送3个请求
+      await http.AxiosRequest.get('/test1');
+      jest.advanceTimersByTime(1000);
+
+      await http.AxiosRequest.get('/test2');
+      jest.advanceTimersByTime(1000);
+
+      await http.AxiosRequest.get('/test3');
+
+      // 在5秒计时器触发前，不应该保存
+      expect(myCooke.saveLibDataAsync).not.toHaveBeenCalled();
+
+      // 5秒后应该只保存一次
+      jest.advanceTimersByTime(5000);
+      expect(myCooke.saveLibDataAsync).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Cookie格式处理', () => {
+    test('应该正确处理包含多个字段的Cookie', async () => {
+      myCooke.CookeObj.Cookie = 'FROM_TYPE=weixin; Authorization=token123; SERVERID=old; Hm_lvt=123456';
+
+      const mockAdapter = jest.fn((config) => {
+        return Promise.resolve({
+          data: {},
+          status: 200,
+          headers: {
+            'set-cookie': ['SERVERID=new999; Path=/']
+          },
+          config
+        });
+      });
+
+      http.AxiosRequest.defaults.adapter = mockAdapter;
+      await http.AxiosRequest.get('/test');
+
+      const updatedCookie = myCooke.CookeObj.Cookie;
+      expect(updatedCookie).toContain('FROM_TYPE=weixin');
+      expect(updatedCookie).toContain('Authorization=token123');
+      expect(updatedCookie).toContain('SERVERID=new999');
+      expect(updatedCookie).toContain('Hm_lvt=123456');
+      expect(updatedCookie).not.toContain('SERVERID=old');
+    });
+
+    test('应该移除空的Cookie片段', async () => {
+      myCooke.CookeObj.Cookie = 'Authorization=test; ; SERVERID=old; ; ';
+
+      const mockAdapter = jest.fn((config) => {
+        return Promise.resolve({
+          data: {},
+          status: 200,
+          headers: {
+            'set-cookie': ['SERVERID=new; Path=/']
+          },
+          config
+        });
+      });
+
+      http.AxiosRequest.defaults.adapter = mockAdapter;
+      await http.AxiosRequest.get('/test');
+
+      const updatedCookie = myCooke.CookeObj.Cookie;
+      // 不应该有连续的分号
+      expect(updatedCookie).not.toMatch(/;;/);
+    });
+
+    test('应该正确处理SERVERID在Cookie开头的情况', async () => {
+      myCooke.CookeObj.Cookie = 'SERVERID=old123; Authorization=token';
+
+      const mockAdapter = jest.fn((config) => {
+        return Promise.resolve({
+          data: {},
+          status: 200,
+          headers: {
+            'set-cookie': ['SERVERID=new123; Path=/']
+          },
+          config
+        });
+      });
+
+      http.AxiosRequest.defaults.adapter = mockAdapter;
+      await http.AxiosRequest.get('/test');
+
+      const updatedCookie = myCooke.CookeObj.Cookie;
+      expect(updatedCookie).toContain('SERVERID=new123');
+      expect(updatedCookie).toContain('Authorization=token');
+      // Cookie开头不应该有分号
+      expect(updatedCookie).not.toMatch(/^;/);
+    });
+  });
+
+  describe('错误处理', () => {
+    test('应该在请求失败时拒绝Promise', async () => {
+      const mockAdapter = jest.fn((config) => {
+        return Promise.reject(new Error('Network Error'));
+      });
+
+      http.AxiosRequest.defaults.adapter = mockAdapter;
+
+      await expect(http.AxiosRequest.get('/test')).rejects.toThrow('Network Error');
+    });
+
+    test('应该在保存失败时捕获错误', async () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      myCooke.saveLibDataAsync.mockRejectedValue(new Error('Save failed'));
+
+      const mockAdapter = jest.fn((config) => {
+        return Promise.resolve({
+          data: {},
+          status: 200,
+          headers: {
+            'set-cookie': ['SERVERID=new; Path=/']
+          },
+          config
+        });
+      });
+
+      http.AxiosRequest.defaults.adapter = mockAdapter;
+      await http.AxiosRequest.get('/test');
+
+      jest.advanceTimersByTime(5000);
+
+      // 等待Promise完成
+      await new Promise(resolve => setImmediate(resolve));
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('【http.js】保存Cookie失败'),
+        expect.any(Error)
+      );
+
+      consoleSpy.mockRestore();
+    });
+  });
+});
