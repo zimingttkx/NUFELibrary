@@ -28,3 +28,6 @@ nul
 *.pem
 node_modules
 apidoc
+
+# 敏感数据文件
+nodeServer/fuckinglib/data.json

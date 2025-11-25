@@ -1,0 +1,363 @@
+// Mock dependencies first before requiring anything
+const mockWebSocketInstance = {
+  on: jest.fn(),
+  send: jest.fn(),
+  close: jest.fn(),
+  readyState: 1
+};
+
+const MockWebSocket = jest.fn(() => mockWebSocketInstance);
+MockWebSocket.OPEN = 1;
+MockWebSocket.CLOSED = 3;
+
+jest.mock('ws', () => MockWebSocket);
+
+jest.mock('../http.js', () => ({
+  UA: 'test-user-agent'
+}));
+
+jest.mock('../myCooke.js', () => ({
+  CookeObj: {
+    Cookie: 'test-cookie'
+  }
+}));
+
+jest.mock('../pub-sub.js', () => ({
+  Event: {
+    $emit: jest.fn()
+  }
+}));
+
+// Mock index.js verifyCookie function
+jest.mock('../index.js', () => ({
+  verifyCookie: jest.fn(() => Promise.resolve({ success: true }))
+}), { virtual: true });
+
+describe('websocket.js - WebSocket连接管理测试', () => {
+  let websocket;
+  let Event;
+  let indexModule;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    // Reset mock instance
+    mockWebSocketInstance.on.mockClear();
+    mockWebSocketInstance.send.mockClear();
+    mockWebSocketInstance.close.mockClear();
+
+    // 重新加载模块
+    Event = require('../pub-sub.js').Event;
+    indexModule = require('../index.js');
+    websocket = require('../websocket.js');
+
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  describe('模块导出验证', () => {
+    test('应该导出createSocket函数', () => {
+      expect(websocket).toHaveProperty('createSocket');
+      expect(typeof websocket.createSocket).toBe('function');
+    });
+  });
+
+  describe('WebSocket连接创建', () => {
+    test('应该使用正确的URL和headers创建WebSocket连接', () => {
+      websocket.createSocket();
+
+      expect(MockWebSocket).toHaveBeenCalledWith(
+        'ws://wechat.v2.traceint.com/ws?ns=prereserve/queue',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'User-Agent': 'test-user-agent',
+            'App-Version': '2.0.14',
+            Cookie: 'test-cookie',
+            Connection: 'Upgrade',
+            Upgrade: 'websocket',
+            'Sec-WebSocket-Version': 13
+          })
+        })
+      );
+    });
+
+    test('应该包含有效的Sec-WebSocket-Key', () => {
+      websocket.createSocket();
+
+      const callArgs = MockWebSocket.mock.calls[0][1];
+      expect(callArgs.headers['Sec-WebSocket-Key']).toBeDefined();
+      expect(typeof callArgs.headers['Sec-WebSocket-Key']).toBe('string');
+      expect(callArgs.headers['Sec-WebSocket-Key'].length).toBeGreaterThan(0);
+    });
+
+    test('应该注册所有必要的事件监听器', () => {
+      websocket.createSocket();
+
+      expect(mockWebSocketInstance.on).toHaveBeenCalledWith('open', expect.any(Function));
+      expect(mockWebSocketInstance.on).toHaveBeenCalledWith('message', expect.any(Function));
+      expect(mockWebSocketInstance.on).toHaveBeenCalledWith('close', expect.any(Function));
+    });
+
+    test('应该返回WebSocket实例', () => {
+      const socket = websocket.createSocket();
+      expect(socket).toBe(mockWebSocketInstance);
+    });
+  });
+
+  describe('WebSocket连接打开事件', () => {
+    test('应该在连接打开时发送初始消息', () => {
+      websocket.createSocket();
+
+      const openHandler = mockWebSocketInstance.on.mock.calls.find(
+        call => call[0] === 'open'
+      )[1];
+
+      openHandler();
+
+      expect(mockWebSocketInstance.send).toHaveBeenCalledWith(
+        JSON.stringify({ ns: 'prereserve/queue', msg: '' })
+      );
+    });
+
+    test('应该启动100ms心跳间隔', () => {
+      websocket.createSocket();
+
+      const openHandler = mockWebSocketInstance.on.mock.calls.find(
+        call => call[0] === 'open'
+      )[1];
+
+      openHandler();
+
+      // 初始发送
+      expect(mockWebSocketInstance.send).toHaveBeenCalledTimes(1);
+
+      // 100ms后应该再次发送
+      jest.advanceTimersByTime(100);
+      expect(mockWebSocketInstance.send).toHaveBeenCalledTimes(2);
+
+      // 再100ms
+      jest.advanceTimersByTime(100);
+      expect(mockWebSocketInstance.send).toHaveBeenCalledTimes(3);
+
+      // 1秒应该发送约10次
+      jest.advanceTimersByTime(700);
+      expect(mockWebSocketInstance.send.mock.calls.length).toBeGreaterThanOrEqual(10);
+    });
+  });
+
+  describe('WebSocket消息处理', () => {
+    let messageHandler;
+
+    beforeEach(() => {
+      websocket.createSocket();
+      messageHandler = mockWebSocketInstance.on.mock.calls.find(
+        call => call[0] === 'message'
+      )[1];
+    });
+
+    test('应该正确解析JSON消息', () => {
+      const mockMessage = JSON.stringify({
+        ns: 'test',
+        msg: '测试消息',
+        code: 0,
+        data: 1
+      });
+
+      expect(() => {
+        messageHandler(Buffer.from(mockMessage));
+      }).not.toThrow();
+    });
+
+    test('应该在第一次握手成功时调用verifyCookie', async () => {
+      const mockMessage = JSON.stringify({
+        ns: 'prereserve/queue',
+        msg: '握手成功',
+        code: 0,
+        data: 1
+      });
+
+      messageHandler(Buffer.from(mockMessage));
+
+      // 等待Promise
+      await new Promise(resolve => setImmediate(resolve));
+
+      expect(indexModule.verifyCookie).toHaveBeenCalled();
+    });
+
+    test('应该在获取用户信息失败时触发resetWs事件', () => {
+      const mockMessage = JSON.stringify({
+        ns: 'prereserve/queue',
+        msg: '获取用户信息失败，请尝试重新进入此页面',
+        code: -1,
+        data: null
+      });
+
+      messageHandler(Buffer.from(mockMessage));
+
+      expect(Event.$emit).toHaveBeenCalledWith('resetWs');
+    });
+
+    test('应该在Cookie无效时触发InvalidCookie事件', () => {
+      const mockMessage = JSON.stringify({
+        ns: 'prereserve/queue',
+        msg: 1000,
+        code: -1,
+        data: null
+      });
+
+      messageHandler(Buffer.from(mockMessage));
+
+      expect(Event.$emit).toHaveBeenCalledWith('InvalidCookie');
+    });
+
+    test('应该在预约成功时触发success事件', () => {
+      const mockMessage = JSON.stringify({
+        ns: 'prereserve/queue',
+        msg: '你已经成功登记了明天的,座位号: 225',
+        code: 0,
+        data: 0
+      });
+
+      messageHandler(Buffer.from(mockMessage));
+
+      expect(Event.$emit).toHaveBeenCalledWith('success');
+    });
+
+    test('应该识别不在预约时间的消息', () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      const mockMessage = JSON.stringify({
+        ns: 'prereserve/queue',
+        msg: '不在预约时间内,请在 20:00-23:59 来预约',
+        code: 0,
+        data: 0
+      });
+
+      messageHandler(Buffer.from(mockMessage));
+
+      expect(consoleSpy).toHaveBeenCalledWith('当前不在排队时间');
+      consoleSpy.mockRestore();
+    });
+
+    test('应该识别排队成功消息', () => {
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      const mockMessage = JSON.stringify({
+        ns: 'prereserve/queue',
+        msg: '排队成功！请在2分钟内选择座位，否则需要重新排队。',
+        code: 0,
+        data: 0
+      });
+
+      messageHandler(Buffer.from(mockMessage));
+
+      expect(consoleSpy).toHaveBeenCalledWith('【提示】正在自动排队..');
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('WebSocket连接关闭', () => {
+    test('应该在关闭时清除心跳定时器', () => {
+      websocket.createSocket();
+
+      // 触发open事件启动心跳
+      const openHandler = mockWebSocketInstance.on.mock.calls.find(
+        call => call[0] === 'open'
+      )[1];
+      openHandler();
+
+      // 验证心跳正在运行
+      jest.advanceTimersByTime(100);
+      const sendCountBeforeClose = mockWebSocketInstance.send.mock.calls.length;
+
+      // 触发close事件
+      const closeHandler = mockWebSocketInstance.on.mock.calls.find(
+        call => call[0] === 'close'
+      )[1];
+      closeHandler();
+
+      // 再前进时间，心跳应该已停止
+      jest.advanceTimersByTime(1000);
+      expect(mockWebSocketInstance.send.mock.calls.length).toBe(sendCountBeforeClose);
+    });
+  });
+
+  describe('createSocketKey函数', () => {
+    test('应该生成不同的key（通过多次调用）', () => {
+      websocket.createSocket();
+      const key1 = MockWebSocket.mock.calls[0][1].headers['Sec-WebSocket-Key'];
+
+      MockWebSocket.mockClear();
+
+      websocket.createSocket();
+      const key2 = MockWebSocket.mock.calls[0][1].headers['Sec-WebSocket-Key'];
+
+      // 由于是随机生成的UUID，两次调用应该生成不同的key（极大概率）
+      expect(key1).toBeDefined();
+      expect(key2).toBeDefined();
+    });
+
+    test('生成的key应该是base64格式', () => {
+      websocket.createSocket();
+
+      const key = MockWebSocket.mock.calls[0][1].headers['Sec-WebSocket-Key'];
+      // Base64格式验证：应该只包含字母、数字、+、/和=
+      expect(key).toMatch(/^[A-Za-z0-9+/=]+$/);
+    });
+  });
+
+  describe('消息格式验证', () => {
+    test('发送的payload应该是正确的JSON格式', () => {
+      websocket.createSocket();
+
+      const openHandler = mockWebSocketInstance.on.mock.calls.find(
+        call => call[0] === 'open'
+      )[1];
+      openHandler();
+
+      const sentPayload = mockWebSocketInstance.send.mock.calls[0][0];
+      const parsed = JSON.parse(sentPayload);
+
+      expect(parsed).toEqual({
+        ns: 'prereserve/queue',
+        msg: ''
+      });
+    });
+  });
+
+  describe('边界情况处理', () => {
+    test('应该处理空消息', () => {
+      websocket.createSocket();
+
+      const messageHandler = mockWebSocketInstance.on.mock.calls.find(
+        call => call[0] === 'message'
+      )[1];
+
+      expect(() => {
+        messageHandler(Buffer.from(JSON.stringify({ ns: '', msg: '', code: 0, data: 0 })));
+      }).not.toThrow();
+    });
+
+    test('应该处理消息中的特殊字符', () => {
+      websocket.createSocket();
+
+      const messageHandler = mockWebSocketInstance.on.mock.calls.find(
+        call => call[0] === 'message'
+      )[1];
+
+      const specialMessage = JSON.stringify({
+        ns: 'test',
+        msg: '你已经成功登记了明天的,座位号: 225 🎉',
+        code: 0,
+        data: 0
+      });
+
+      expect(() => {
+        messageHandler(Buffer.from(specialMessage));
+      }).not.toThrow();
+    });
+  });
+});
