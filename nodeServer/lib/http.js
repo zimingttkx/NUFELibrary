@@ -17,6 +17,10 @@ const UA =
   "Mozilla/5.0 (Linux; Android 10; TAS-AL00 Build/HUAWEITAS-AL00; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/107.0.5304.141 Mobile Safari/537.36 XWEB/5043 MMWEBSDK/20221109 MMWEBID/6856 MicroMessenger/8.0.31.2281(0x28001F59) WeChat/arm64 Weixin NetType/WIFI Language/zh_CN ABI/arm64";
 function getSERVERID(cookies) {
   let serverid = "";
+  // 修复：检查cookies是否存在且有内容
+  if (!cookies || cookies.length === 0) {
+    return serverid;
+  }
   cookies[0].split(";").forEach((cookie) => {
     const keyValue = cookie.split("=");
     if (keyValue[0].includes("SERVERID")) {
