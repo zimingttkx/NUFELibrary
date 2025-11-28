@@ -1,8 +1,8 @@
-FROM node:16-alpine3.15
+FROM node:18-alpine
 
 WORKDIR /app
-COPY package.json .
-RUN npm install
-COPY . . 
-EXPOSE 88
+COPY package*.json ./
+RUN npm install --production
+COPY . .
+EXPOSE 8899
 CMD [ "node", "index.js" ]

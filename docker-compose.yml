@@ -14,7 +14,7 @@ services:
     build:
       context: ./nodeServer
       dockerfile: Dockerfile
-    image: libnode:1.0
+    image: libnode:1.0.1
     ports:
       - "${NODE_PORT}:${NODE_PORT}"
     container_name: lib_nodeContainer
@@ -35,7 +35,7 @@ services:
     build:
       context: ./vue
       dockerfile: Dockerfile
-    image: libvue:1.0
+    image: libvue:1.0.1
     ports:
       - "${VUE_PORT}:${VUE_PORT}"
     container_name: lib_vueContainer
