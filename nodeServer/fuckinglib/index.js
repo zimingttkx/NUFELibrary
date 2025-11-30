@@ -5,6 +5,7 @@ const { createSocket } = require("./websocket.js");
 const { Event } = require("./pub-sub.js");
 const { Cron } = require("croner");
 const axios = require("axios");
+const RequestScheduler = require("./requestScheduler.js");
 
 const {
   NOTINCE_TIME_CRON,
@@ -16,6 +17,7 @@ var reserveInterval = null;
 var currentSocket = null;
 var refreshCount = 0;
 var availableSeatStack = [];
+var reserveScheduler = null; // 请求调度器实例
 /**
  * @deprecated 内存泄露弃用
  */
@@ -94,13 +96,25 @@ const successTcatask = Cron(
     timezone: "Asia/Shanghai",
   },
   () => {
-    // 注册预约轮询器 - 极速抢座模式
-    reserveInterval = setInterval(() => {
-      // 并发发送3个请求，提高命中率
-      reserveSeat();
-      setTimeout(() => reserveSeat(), 50);
-      setTimeout(() => reserveSeat(), 100);
-    }, 150);  // 极限：150ms (每秒约20次请求)
+    const now = new Date();
+    const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`🚀🚀🚀【${timeStr} 定时任务启动！】🚀🚀🚀`);
+    console.log(`📅 配置时间：${START_TIME_CRON}`);
+    console.log(`🎯 目标座位：${CookeObj.seatName}号 (图书馆ID: ${CookeObj.libId})`);
+    console.log(`⚡ 高性能调度模式：最大并发50，目标100次/秒`);
+    console.log(`🛡️  内置限流保护，确保本地服务器稳定`);
+    console.log(`⏱️  运行时长：5分钟（到 20:05:00 自动停止）`);
+    console.log(`${'='.repeat(60)}\n`);
+
+    // 创建并启动请求调度器
+    reserveScheduler = new RequestScheduler({
+      maxConcurrent: 50,      // 最大并发数：50
+      requestsPerSecond: 100  // 目标请求数：100次/秒
+    });
+
+    // 启动调度器，传入预约任务
+    reserveScheduler.start(() => reserveSeat());
   }
 );
 /**
@@ -128,10 +142,40 @@ const killTask = Cron(
     timezone: "Asia/Shanghai",
   },
   () => {
-    currentSocket ? currentSocket.close() : (currentSocket = null);
-    clearInterval(reserveInterval);
-    reserveInterval = null;
+    const now = new Date();
+    const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`⏹️【${timeStr} 定时任务停止】`);
+
+    // 停止请求调度器
+    if (reserveScheduler) {
+      reserveScheduler.stop();
+      const stats = reserveScheduler.getStats();
+      console.log(`📊 统计信息：`);
+      console.log(`   - 总调度：${stats.totalScheduled}次`);
+      console.log(`   - 成功：${stats.totalCompleted}次`);
+      console.log(`   - 失败：${stats.totalFailed}次`);
+      console.log(`   - 限流：${stats.throttled}次`);
+      console.log(`   - 实际RPS：${stats.actualRPS}次/秒`);
+      console.log(`   - 成功率：${stats.successRate}`);
+      console.log(`   - 运行时长：${stats.runTime}`);
+      reserveScheduler = null;
+    }
+
+    // 关闭WebSocket连接
+    if (currentSocket) {
+      currentSocket.close();
+      currentSocket = null;
+    }
+
+    // 清理旧的interval（向后兼容）
+    if (reserveInterval) {
+      clearInterval(reserveInterval);
+      reserveInterval = null;
+    }
+
     refreshCount = 0;
+    console.log(`${'='.repeat(60)}\n`);
   }
 );
 
@@ -147,13 +191,26 @@ const killTask = Cron(
 Event.$on(
   "success",
   (fn = () => {
+    console.log("🎉 预约成功！正在停止调度器...");
+
+    // 停止请求调度器
+    if (reserveScheduler) {
+      reserveScheduler.stop();
+      const stats = reserveScheduler.getStats();
+      console.log(`📊 最终统计：调度${stats.totalScheduled}次，成功率${stats.successRate}`);
+      reserveScheduler = null;
+    }
+
     // kill socket
     currentSocket?.close();
     currentSocket = null;
-    // kill 轮询器
-    clearInterval(reserveInterval);
-    reserveInterval = null;
-    // Event.$remove("success");
+
+    // kill 轮询器（向后兼容）
+    if (reserveInterval) {
+      clearInterval(reserveInterval);
+      reserveInterval = null;
+    }
+
     refreshCount = 0;
     // throttleSendMail("lib_success");
     // 清除栈

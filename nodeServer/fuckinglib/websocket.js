@@ -81,10 +81,13 @@ function createSocket() {
       }
 
       if (msg === outTimeMsg) {
-        console.log("当前不在排队时间");
+        console.log("⏰【排队中】当前不在预约时间，保持连接继续尝试...");
+        // 不关闭连接，继续保持WebSocket连接，持续发送排队请求
+        // socket.close();  // 注释掉关闭连接的代码
+        // Event.$emit("resetWs");  // 不触发重置事件
       }
       if (msg === inTimeMsg) {
-        console.log(`【提示】正在自动排队..`);
+        console.log(`✅【排队成功】正在自动排队，准备抢座..`);
       }
     }
   });

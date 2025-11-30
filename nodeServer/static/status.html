@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抢座实时状态 - 图书馆座位预约系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+
+        .status-waiting {
+            background: #ffc107;
+            color: #000;
+        }
+
+        .status-running {
+            background: #4caf50;
+            color: white;
+            animation: pulse 2s infinite;
+        }
+
+        .status-success {
+            background: #00c853;
+            color: white;
+        }
+
+        .status-error {
+            background: #f44336;
+            color: white;
+        }
+
+        .status-stopped {
+            background: #9e9e9e;
+            color: white;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            color: #333;
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        .stat-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .log-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .log-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .log-entry {
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            border-left: 4px solid #ddd;
+            background: #f8f9fa;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .log-time {
+            color: #999;
+            font-size: 12px;
+            margin-right: 10px;
+        }
+
+        .log-message {
+            color: #333;
+            font-size: 14px;
+        }
+
+        .log-info {
+            border-left-color: #2196f3;
+        }
+
+        .log-success {
+            border-left-color: #4caf50;
+            background: #e8f5e9;
+        }
+
+        .log-warning {
+            border-left-color: #ff9800;
+            background: #fff3e0;
+        }
+
+        .log-error {
+            border-left-color: #f44336;
+            background: #ffebee;
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            border-radius: 20px;
+            background: white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 1000;
+        }
+
+        .connection-online {
+            color: #4caf50;
+        }
+
+        .connection-offline {
+            color: #f44336;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s;
+            animation: progress-animation 2s infinite;
+        }
+
+        @keyframes progress-animation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .big-success {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 50px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            z-index: 2000;
+            display: none;
+            animation: bounceIn 0.5s;
+        }
+
+        @keyframes bounceIn {
+            0% { transform: translate(-50%, -50%) scale(0); }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+
+        .big-success-icon {
+            font-size: 100px;
+            margin-bottom: 20px;
+        }
+
+        .big-success-text {
+            font-size: 32px;
+            font-weight: bold;
+            color: #4caf50;
+            margin-bottom: 10px;
+        }
+
+        .big-success-detail {
+            font-size: 18px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="connection-status" id="connectionStatus">
+        <span class="connection-offline">⚫ 未连接</span>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🎯 图书馆抢座实时监控</h1>
+            <div class="status-badge status-waiting" id="statusBadge">等待启动</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">🎯</div>
+                <div class="stat-label">目标座位</div>
+                <div class="stat-value" id="targetSeat">-</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">🔄</div>
+                <div class="stat-label">尝试次数</div>
+                <div class="stat-value" id="attemptCount">0</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">⏱️</div>
+                <div class="stat-label">运行时间</div>
+                <div class="stat-value" id="runningTime">00:00</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">🔌</div>
+                <div class="stat-label">WebSocket状态</div>
+                <div class="stat-value" id="wsStatus" style="font-size: 18px;">未连接</div>
+            </div>
+        </div>
+
+        <div class="log-container">
+            <div class="log-title">📋 实时日志</div>
+            <div id="logEntries"></div>
+        </div>
+    </div>
+
+    <div class="big-success" id="bigSuccess">
+        <div class="big-success-icon">🎉</div>
+        <div class="big-success-text">预约成功！</div>
+        <div class="big-success-detail" id="successDetail"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        let startTime = null;
+        let timerInterval = null;
+        let attemptCount = 0;
+
+        // 连接WebSocket
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            ws = new WebSocket(`${protocol}//${host}/status-ws`);
+
+            ws.onopen = () => {
+                console.log('WebSocket已连接');
+                updateConnectionStatus(true);
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleMessage(data);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket已断开');
+                updateConnectionStatus(false);
+                // 5秒后重连
+                setTimeout(connectWebSocket, 5000);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket错误:', error);
+                updateConnectionStatus(false);
+            };
+        }
+
+        // 更新连接状态
+        function updateConnectionStatus(isConnected) {
+            const statusEl = document.getElementById('connectionStatus');
+            if (isConnected) {
+                statusEl.innerHTML = '<span class="connection-online">🟢 已连接</span>';
+            } else {
+                statusEl.innerHTML = '<span class="connection-offline">🔴 未连接</span>';
+            }
+        }
+
+        // 处理消息
+        function handleMessage(data) {
+            switch (data.type) {
+                case 'connected':
+                    addLog('info', '已连接到服务器');
+                    break;
+
+                case 'task_start':
+                    handleTaskStart(data.config);
+                    break;
+
+                case 'websocket_status':
+                    handleWebSocketStatus(data.status, data.message);
+                    break;
+
+                case 'reserve_attempt':
+                    handleReserveAttempt(data.attemptCount, data.seatName);
+                    break;
+
+                case 'error':
+                    handleError(data.errorType, data.message);
+                    break;
+
+                case 'success':
+                    handleSuccess(data.seatName, data.libId);
+                    break;
+
+                case 'task_stop':
+                    handleTaskStop(data.totalAttempts);
+                    break;
+
+                case 'queue_status':
+                    handleQueueStatus(data.message);
+                    break;
+
+                case 'seat_switch':
+                    handleSeatSwitch(data.fromSeat, data.toSeat, data.reason);
+                    break;
+            }
+        }
+
+        // 处理任务启动
+        function handleTaskStart(config) {
+            startTime = Date.now();
+            attemptCount = 0;
+
+            document.getElementById('statusBadge').className = 'status-badge status-running';
+            document.getElementById('statusBadge').textContent = '🚀 正在抢座';
+
+            document.getElementById('targetSeat').textContent = config.seatName || '-';
+
+            addLog('success', `任务启动！目标座位：${config.seatName}号`);
+
+            // 启动计时器
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        // 处理WebSocket状态
+        function handleWebSocketStatus(status, message) {
+            document.getElementById('wsStatus').textContent = status;
+            addLog('info', message);
+        }
+
+        // 处理预约尝试
+        function handleReserveAttempt(count, seatName) {
+            attemptCount = count;
+            document.getElementById('attemptCount').textContent = count;
+
+            // 更新进度条（假设最多尝试2000次）
+            const progress = Math.min((count / 2000) * 100, 100);
+            document.getElementById('progressFill').style.width = progress + '%';
+        }
+
+        // 处理错误
+        function handleError(errorType, message) {
+            addLog('error', message);
+        }
+
+        // 处理成功
+        function handleSuccess(seatName, libId) {
+            document.getElementById('statusBadge').className = 'status-badge status-success';
+            document.getElementById('statusBadge').textContent = '✅ 预约成功';
+
+            addLog('success', `🎉 成功预约座位：${seatName}号！`);
+
+            // 显示大成功提示
+            document.getElementById('successDetail').textContent = `座位 ${seatName}号 已成功预约！`;
+            document.getElementById('bigSuccess').style.display = 'block';
+
+            // 停止计时器
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+
+            // 5秒后隐藏成功提示
+            setTimeout(() => {
+                document.getElementById('bigSuccess').style.display = 'none';
+            }, 5000);
+        }
+
+        // 处理任务停止
+        function handleTaskStop(totalAttempts) {
+            document.getElementById('statusBadge').className = 'status-badge status-stopped';
+            document.getElementById('statusBadge').textContent = '⏹️ 已停止';
+
+            addLog('info', `任务停止，共尝试 ${totalAttempts} 次`);
+
+            // 停止计时器
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        // 处理排队状态
+        function handleQueueStatus(message) {
+            addLog('warning', message);
+        }
+
+        // 处理座位切换
+        function handleSeatSwitch(fromSeat, toSeat, reason) {
+            addLog('warning', `座位 ${fromSeat} ${reason}，切换到 ${toSeat}`);
+        }
+
+        // 添加日志
+        function addLog(type, message) {
+            const logEntries = document.getElementById('logEntries');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+
+            const now = new Date();
+            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+
+            entry.innerHTML = `
+                <span class="log-time">${timeStr}</span>
+                <span class="log-message">${message}</span>
+            `;
+
+            logEntries.insertBefore(entry, logEntries.firstChild);
+
+            // 限制日志数量
+            while (logEntries.children.length > 100) {
+                logEntries.removeChild(logEntries.lastChild);
+            }
+        }
+
+        // 更新计时器
+        function updateTimer() {
+            if (!startTime) return;
+
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+
+            document.getElementById('runningTime').textContent =
+                `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        // 页面加载时连接WebSocket
+        window.addEventListener('load', () => {
+            connectWebSocket();
+        });
+    </script>
+</body>
+</html>
