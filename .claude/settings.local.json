@@ -31,7 +31,14 @@
       "Bash(chmod:*)",
       "Bash(git add:*)",
       "Bash(git rebase:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(git commit:*)",
+      "Bash(git tag:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "WebFetch(domain:zhuanlan.zhihu.com)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []

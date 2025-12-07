@@ -1,0 +1,127 @@
+{
+  "cookie": "SERVERID=b9fc7bd86d2eed91b23d7347e0ee995e|1765119501|1765119476;Authorization=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJ1c2VySWQiOjQ2ODc5NzUxLCJzY2hJZCI6MjIsImV4cGlyZUF0IjoxNzY1MTI2Njc3LCJ0YWciOiJjb29raWUtZGRlMyJ9.GUarixcp05fvq4KYf8sJOLPVSQEqHSyY4hJe2iw-XQVi1q5mhcmWToXlyrcZ1n03WA_TilkmbYbVnRELQQFEx4xFZTf7CPOIjRTxrVwok13MFlI1nw9svzKW2GouN_ZXJSH9-k49EjUGEg3Hfy4AWWfJve5u74d57cig3WiOuD01t3mulWB2z7fSvENaGl3s9dmI8NYuT3HhgsiXgtd9gBimKrlqduJ2FTdKdci61i7MZ5nyD4yW-i-zBFPVQFMnj8_aBaWx2q1HbxLWxOusrUbYpq1j4j1ChPUei36aZLJr2hcs4OhapE7Mu9EYsksIjlXUcNNNqJg2wRuSfSN3bw",
+  "libId": 114162,
+  "libName": "三楼东区（笔电专区)",
+  "seatName": "D042",
+  "seatKey": "30,23",
+  "libList": [
+    {
+      "is_open": true,
+      "lib_floor": "1楼",
+      "lib_group_id": "1",
+      "lib_id": 35,
+      "lib_name": "一楼电梯前厅",
+      "num": 77,
+      "seats_total": 80
+    },
+    {
+      "is_open": true,
+      "lib_floor": "1楼",
+      "lib_group_id": "1",
+      "lib_id": 429,
+      "lib_name": "一楼东区东一",
+      "num": 88,
+      "seats_total": 168
+    },
+    {
+      "is_open": true,
+      "lib_floor": "1楼",
+      "lib_group_id": "1",
+      "lib_id": 430,
+      "lib_name": "一楼东区东二",
+      "num": 0,
+      "seats_total": 176
+    },
+    {
+      "is_open": true,
+      "lib_floor": "三楼东南",
+      "lib_group_id": "1",
+      "lib_id": 114162,
+      "lib_name": "三楼东区（笔电专区)",
+      "num": 9,
+      "seats_total": 90
+    },
+    {
+      "is_open": true,
+      "lib_floor": "2楼",
+      "lib_group_id": "1",
+      "lib_id": 431,
+      "lib_name": "二楼东区",
+      "num": 58,
+      "seats_total": 72
+    },
+    {
+      "is_open": true,
+      "lib_floor": "2楼",
+      "lib_group_id": "1",
+      "lib_id": 432,
+      "lib_name": "二楼西区",
+      "num": 141,
+      "seats_total": 152
+    },
+    {
+      "is_open": true,
+      "lib_floor": "3楼",
+      "lib_group_id": "1",
+      "lib_id": 433,
+      "lib_name": "三楼中区",
+      "num": 58,
+      "seats_total": 80
+    },
+    {
+      "is_open": true,
+      "lib_floor": "4楼",
+      "lib_group_id": "1",
+      "lib_id": 434,
+      "lib_name": "四楼西区",
+      "num": 177,
+      "seats_total": 208
+    },
+    {
+      "is_open": true,
+      "lib_floor": "4楼",
+      "lib_group_id": "1",
+      "lib_id": 435,
+      "lib_name": "四楼中区",
+      "num": 40,
+      "seats_total": 40
+    },
+    {
+      "is_open": true,
+      "lib_floor": "4楼",
+      "lib_group_id": "1",
+      "lib_id": 439,
+      "lib_name": "四楼东区",
+      "num": 174,
+      "seats_total": 190
+    },
+    {
+      "is_open": true,
+      "lib_floor": "5楼",
+      "lib_group_id": "1",
+      "lib_id": 443,
+      "lib_name": "五楼西区",
+      "num": 62,
+      "seats_total": 76
+    },
+    {
+      "is_open": true,
+      "lib_floor": "1楼",
+      "lib_group_id": "1",
+      "lib_id": 123280,
+      "lib_name": "一楼东区走廊北（1楼电子资源检索专区）",
+      "num": 1,
+      "seats_total": 2
+    },
+    {
+      "is_open": true,
+      "lib_floor": "3楼",
+      "lib_group_id": "1",
+      "lib_id": 123364,
+      "lib_name": "三楼西北区",
+      "num": 75,
+      "seats_total": 168
+    }
+  ],
+  "autoReserve": true
+}
