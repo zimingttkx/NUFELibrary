@@ -13,9 +13,14 @@
   },
   "pkg": {
     "scripts": "lib/**/*.js",
+    "assets": [
+      "node_modules/axios/package.json",
+      "node_modules/axios/dist/node/axios.cjs"
+    ],
     "targets": [
       "node16-linux-x64",
-      "node16-win-x64"
+      "node16-win-x64",
+      "node16-macos-x64"
     ],
     "outputPath": "dist"
   },
