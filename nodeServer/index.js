@@ -18,6 +18,7 @@ const {
 } = require("./config.default.js");
 const { router } = require("./router/index");
 const { saveLibData } = require("./fuckinglib/myCooke.js");
+const statusBroadcast = require("./fuckinglib/statusBroadcast.js");
 
 const server = new Koa();
 server
@@ -40,18 +41,25 @@ server
 const IS_HTTPS = process.env.IS_HTTPS || DEFAULT_IS_HTTPS;
 const NODE_PORT = process.env.NODE_PORT || DEFAULT_NODE_PORT;
 
+let httpServer;
+
 if (IS_HTTPS === "on") {
   const { options } = require("./ssl/index.js");
-  https
+  httpServer = https
     .createServer(options, server.callback())
     .listen(NODE_PORT, "0.0.0.0", () => {
       console.log(`🚀HTTPS server is running on: ${NODE_PORT}`);
+      console.log(`📊 实时状态页面: https://localhost:${NODE_PORT}/static/status.html`);
     });
 } else {
-  http.createServer(server.callback()).listen(NODE_PORT, "0.0.0.0", () => {
+  httpServer = http.createServer(server.callback()).listen(NODE_PORT, "0.0.0.0", () => {
     console.log(`🚀 HTTP server is running on: ${NODE_PORT}`);
+    console.log(`📊 实时状态页面: http://localhost:${NODE_PORT}/static/status.html`);
   });
 }
+
+// 初始化WebSocket状态广播服务器
+statusBroadcast.initWebSocketServer(httpServer);
 
 // 监听终止信号
 ["SIGINT", "SIGTERM", "SIGQUIT"].forEach((signal) => {

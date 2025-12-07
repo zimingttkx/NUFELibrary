@@ -31,3 +31,7 @@ apidoc
 
 # 敏感数据文件
 nodeServer/fuckinglib/data.json
+nodeServer/lib/data.json
+
+# Claude Code 相关文件
+.claude/

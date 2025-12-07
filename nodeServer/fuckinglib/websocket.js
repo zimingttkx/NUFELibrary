@@ -42,12 +42,12 @@ function createSocket() {
     },
   });
   socket.on("open", () => {
-    console.log("【webSocket】连接成功 - 极速模式");
-    // 极速排队心跳
+    console.log("【webSocket】连接成功");
+    // 注册timer 600ms发送一次保活msg（原仓库800ms，优化为600ms）
     socket.send(clientPayload);
     limitSendMsg = setInterval(() => {
       socket.send(clientPayload);
-    }, 100);  // 极限：100ms (每秒10次)
+    }, 600);
   });
   socket.on("message", (rawData) => {
     const { verifyCookie } = require("./index.js");

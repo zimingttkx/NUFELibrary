@@ -31,6 +31,13 @@
           <div class="card-title">楼层占用</div>
           <div class="card-desc">楼层占用统计<br/>可视化数据、占用率分析</div>
         </div>
+
+        <!-- 实时状态监控卡片 -->
+        <div class="nav-card" @click="goToStatusMonitor">
+          <div class="card-icon">📡</div>
+          <div class="card-title">实时监控</div>
+          <div class="card-desc">抢座状态监控<br/>实时查看抢座进度和结果</div>
+        </div>
       </div>
 
       <div class="footer-text">选择一个功能开始使用</div>
@@ -53,6 +60,10 @@ export default {
     },
     goToFloorOccupancy() {
       this.$router.push('/floor-occupancy')
+    },
+    goToStatusMonitor() {
+      // 打开后端实时状态监控页面
+      window.open('http://localhost:8899/static/status.html', '_blank')
     }
   }
 }

@@ -5,7 +5,6 @@ const { createSocket } = require("./websocket.js");
 const { Event } = require("./pub-sub.js");
 const { Cron } = require("croner");
 const axios = require("axios");
-const RequestScheduler = require("./requestScheduler.js");
 
 const {
   NOTINCE_TIME_CRON,
@@ -17,7 +16,6 @@ var reserveInterval = null;
 var currentSocket = null;
 var refreshCount = 0;
 var availableSeatStack = [];
-var reserveScheduler = null; // 请求调度器实例
 /**
  * @deprecated 内存泄露弃用
  */
@@ -96,25 +94,11 @@ const successTcatask = Cron(
     timezone: "Asia/Shanghai",
   },
   () => {
-    const now = new Date();
-    const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-    console.log(`\n${'='.repeat(60)}`);
-    console.log(`🚀🚀🚀【${timeStr} 定时任务启动！】🚀🚀🚀`);
-    console.log(`📅 配置时间：${START_TIME_CRON}`);
-    console.log(`🎯 目标座位：${CookeObj.seatName}号 (图书馆ID: ${CookeObj.libId})`);
-    console.log(`⚡ 高性能调度模式：最大并发50，目标100次/秒`);
-    console.log(`🛡️  内置限流保护，确保本地服务器稳定`);
-    console.log(`⏱️  运行时长：5分钟（到 20:05:00 自动停止）`);
-    console.log(`${'='.repeat(60)}\n`);
-
-    // 创建并启动请求调度器
-    reserveScheduler = new RequestScheduler({
-      maxConcurrent: 50,      // 最大并发数：50
-      requestsPerSecond: 100  // 目标请求数：100次/秒
-    });
-
-    // 启动调度器，传入预约任务
-    reserveScheduler.start(() => reserveSeat());
+    console.log("【定时任务】启动预约轮询器");
+    // 注册预约轮询器（原仓库900ms，优化为700ms，提升约30%速度）
+    reserveInterval = setInterval(() => {
+      reserveSeat();
+    }, 700);
   }
 );
 /**
@@ -142,75 +126,32 @@ const killTask = Cron(
     timezone: "Asia/Shanghai",
   },
   () => {
-    const now = new Date();
-    const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-    console.log(`\n${'='.repeat(60)}`);
-    console.log(`⏹️【${timeStr} 定时任务停止】`);
-
-    // 停止请求调度器
-    if (reserveScheduler) {
-      reserveScheduler.stop();
-      const stats = reserveScheduler.getStats();
-      console.log(`📊 统计信息：`);
-      console.log(`   - 总调度：${stats.totalScheduled}次`);
-      console.log(`   - 成功：${stats.totalCompleted}次`);
-      console.log(`   - 失败：${stats.totalFailed}次`);
-      console.log(`   - 限流：${stats.throttled}次`);
-      console.log(`   - 实际RPS：${stats.actualRPS}次/秒`);
-      console.log(`   - 成功率：${stats.successRate}`);
-      console.log(`   - 运行时长：${stats.runTime}`);
-      reserveScheduler = null;
-    }
-
-    // 关闭WebSocket连接
-    if (currentSocket) {
-      currentSocket.close();
-      currentSocket = null;
-    }
-
-    // 清理旧的interval（向后兼容）
-    if (reserveInterval) {
-      clearInterval(reserveInterval);
-      reserveInterval = null;
-    }
-
+    console.log("【定时任务】停止预约轮询器");
+    currentSocket ? currentSocket.close() : (currentSocket = null);
+    clearInterval(reserveInterval);
+    reserveInterval = null;
     refreshCount = 0;
-    console.log(`${'='.repeat(60)}\n`);
   }
 );
 
 /**
- * @deprecated 内存泄露弃用
+ * Cron 定时任务已自动启动（croner 库默认行为）
+ * cleanTask: 每天 0:00 清空状态
+ * noticeTsk: 每天 19:45 发送提醒
+ * successTcatask: 每天 19:59:55 启动预约轮询器（900ms间隔）
+ * killTask: 每天 20:05:00 停止预约轮询器
  */
-// cleanTask.start();
-// successTask.start();
-// noticeTsk.start();
-// killTask.start();
 
 // 注册success监听事件
 Event.$on(
   "success",
   (fn = () => {
-    console.log("🎉 预约成功！正在停止调度器...");
-
-    // 停止请求调度器
-    if (reserveScheduler) {
-      reserveScheduler.stop();
-      const stats = reserveScheduler.getStats();
-      console.log(`📊 最终统计：调度${stats.totalScheduled}次，成功率${stats.successRate}`);
-      reserveScheduler = null;
-    }
-
     // kill socket
     currentSocket?.close();
     currentSocket = null;
-
-    // kill 轮询器（向后兼容）
-    if (reserveInterval) {
-      clearInterval(reserveInterval);
-      reserveInterval = null;
-    }
-
+    // kill 轮询器
+    clearInterval(reserveInterval);
+    reserveInterval = null;
     refreshCount = 0;
     // throttleSendMail("lib_success");
     // 清除栈
@@ -270,72 +211,62 @@ async function refreshPage() {
 }
 
 /**
- * @description 预约座位
+ * @description 预约座位（参考原始仓库逻辑）
  */
-// 当前尝试的座位索引
-let currentSeatIndex = 0;
-
 async function reserveSeat() {
   // 先排队，再抢座
   if (!currentSocket) {
-    console.log("创建了socket-client - 极速模式");
+    console.log("创建了socket-client");
     currentSocket = createSocket();
-    currentSeatIndex = 0;
   }
 
-  // 极速模式：每次都发送请求
-  // 异步刷新页面（不阻塞）
-  if (refreshCount % 5 === 0) {
-    refreshPage().catch(() => {});
-  }
+  // 关键：只在偶数次才发送预约请求（降低频率避免拦截）
+  if (refreshCount % 2 === 0) {
+    try {
+      // 先调用反防刷接口
+      const res = await refreshPage();
+      if (res) {
+        console.log("【😆提示】反防刷触发");
+        try {
+          // 获取座位列表（支持多座位）
+          const seatList = CookeObj.keyList && CookeObj.keyList.length > 0
+            ? CookeObj.keyList
+            : [{ name: CookeObj.seatName, key: CookeObj.key, libId: CookeObj.libId }];
 
-  // 获取当前要尝试的座位
-  const seatList = CookeObj.keyList && CookeObj.keyList.length > 0
-    ? CookeObj.keyList
-    : [{ name: CookeObj.seatName, key: CookeObj.key, libId: CookeObj.libId }];
+          // 使用第一个座位
+          const currentSeat = seatList[0];
 
-  const currentSeat = seatList[currentSeatIndex % seatList.length];
-
-  // 减少日志输出以提高性能（每20次输出一次）
-  if (refreshCount % 20 === 0) {
-    console.log(`【抢座中】座位${currentSeat.name} 第${refreshCount}次`);
-  }
-
-  try {
-    const res = await AxiosRequest.post(`${DOMAIN}/index.php/graphql/`, {
-      operationName: "save",
-      query: "mutation save($key: String!, $libid: Int!, $captchaCode: String, $captcha: String) {\n userAuth {\n prereserve {\n save(key: $key, libId: $libid, captcha: $captcha, captchaCode: $captchaCode)\n }\n }\n}",
-      variables: {
-        key: `${currentSeat.key}.`,
-        libid: Number(currentSeat.libId || CookeObj.libId),
-        captchaCode: "",
-        captcha: "",
-      },
-    });
-
-    const { data, errors } = res.data;
-
-    if (errors) {
-      const errorMsg = errors[0].msg;
-      // 只在关键错误时输出日志
-      if (!errorMsg.includes("排队") && refreshCount % 10 === 0) {
-        console.log(`【错误】${errorMsg}`);
-      }
-      // 座位被占则切换
-      if (errorMsg.includes("已被预约") || errorMsg.includes("不可预约")) {
-        currentSeatIndex++;
-        if (currentSeatIndex >= seatList.length) {
-          currentSeatIndex = 0;
+          const res = await AxiosRequest.post(`${DOMAIN}/index.php/graphql/`, {
+            operationName: "save",
+            query:
+              "mutation save($key: String!, $libid: Int!, $captchaCode: String, $captcha: String) {\n userAuth {\n prereserve {\n save(key: $key, libId: $libid, captcha: $captcha, captchaCode: $captchaCode)\n }\n }\n}",
+            variables: {
+              key: `${currentSeat.key}.`,
+              libid: Number(currentSeat.libId || CookeObj.libId),
+              captchaCode: "",
+              captcha: "",
+            },
+          });
+          const { data, errors } = res.data;
+          const { userAuth } = data;
+          console.log("【reserveSeat】", userAuth);
+          if (errors) {
+            console.log("【错误】", errors[0].msg);
+          } else {
+            if (userAuth) {
+              console.log("【提示】预约请求提交成功..");
+            } else {
+              console.log("其余情况");
+            }
+          }
+        } catch (error) {
+          console.log("[1005]【reserveSeat】意外错误");
         }
       }
-    } else if (data?.userAuth?.prereserve) {
-      console.log(`【🎉成功】座位 ${currentSeat.name} 预约成功！`);
-      Event.$emit("success");
+    } catch (error) {
+      console.log("刷新页面失败", error);
     }
-  } catch (error) {
-    // 静默处理错误，不打印日志
   }
-
   refreshCount++;
 }
 
@@ -722,7 +653,12 @@ async function changeSeatByLibIdandSeatNumber(libId, seatName) {
       CookeObj.key = key;
       CookeObj.seatName = seatName;
 
+      // 🔧 修复：清空备选座位列表，确保只使用当前设置的座位
+      // 这样可以避免抢座时使用旧的 keyList 中的座位
+      CookeObj.keyList = [];
+
       console.log(`【座位设置】场馆ID: ${libId}, 座位号: ${seatName}`);
+      console.log(`【座位设置】已清空备选座位列表，确保使用主座位配置`);
 
       // 保存到文件
       await saveLibDataAsync();
@@ -1414,6 +1350,34 @@ async function testReserveAndCancelController(ctx) {
   console.log("【测试预约】开始测试...");
 
   try {
+    // 第一步：检查是否已有预约
+    console.log("【测试预约】检查现有预约...");
+    const checkQuery = {
+      operationName: "prereserve",
+      query: "query prereserve {\n userAuth {\n prereserve {\n prereserve {\n day\n lib_id\n seat_key\n seat_name\n is_used\n user_mobile\n id\n lib_name\n }\n }\n }\n}",
+      variables: {},
+    };
+
+    const checkRes = await axios.post(`${DOMAIN}/index.php/graphql/`, checkQuery, {
+      headers: {
+        Cookie: CookeObj.Cookie,
+        "Content-Type": "application/json",
+      },
+    });
+
+    // 检查是否已有预约
+    const existingReservations = checkRes.data.data?.userAuth?.prereserve?.prereserve || [];
+    if (existingReservations.length > 0) {
+      const reservation = existingReservations[0];
+      console.log(`【测试预约】发现已有预约：${reservation.lib_name} - ${reservation.seat_name}号`);
+      ctx.body = {
+        code: 0,
+        msg: `✅ 你已经预约成功了！\n座位：${reservation.lib_name} - ${reservation.seat_name}号\n预约ID: ${reservation.id}`,
+      };
+      return;
+    }
+
+    // 第二步：如果没有预约，尝试预约测试
     console.log(`【测试预约】尝试预约楼层${testSeat.libId || CookeObj.libId}的${testSeat.name}号座位`);
 
     // 构造预约请求（使用正确的prereserve.save API）
@@ -1441,10 +1405,24 @@ async function testReserveAndCancelController(ctx) {
     if (errors) {
       const errorMsg = errors[0].msg || errors[0].message;
       console.log(`【测试预约】预约失败：${errorMsg}`);
-      ctx.body = {
-        code: 1,
-        msg: `测试失败：${errorMsg}`,
-      };
+
+      // 区分不同的错误类型
+      if (errorMsg.includes("排队")) {
+        ctx.body = {
+          code: 1,
+          msg: `⚠️ 当前需要排队\n提示：${errorMsg}\n说明：现在不在预约时间段或需要WebSocket排队`,
+        };
+      } else if (errorMsg.includes("已被预约") || errorMsg.includes("不可预约")) {
+        ctx.body = {
+          code: 1,
+          msg: `⚠️ 座位不可用\n提示：${errorMsg}`,
+        };
+      } else {
+        ctx.body = {
+          code: 1,
+          msg: `测试失败：${errorMsg}`,
+        };
+      }
       return;
     }
 
